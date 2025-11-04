@@ -1,0 +1,21 @@
+package com.example.web3;
+
+import org.mybatis.spring.annotation.MapperScan;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+
+/**
+ * @author jiangyuxuan
+ * @date 2024/11/04
+ */
+@SpringBootApplication
+@MapperScan("com.example.web3.mapper")
+@EnableConfigurationProperties
+public class Web3DemoApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(Web3DemoApplication.class, args);
+    }
+}
+

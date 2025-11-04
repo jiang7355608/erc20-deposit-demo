@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.web3.mapper.DepositMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.web3.entity.DepositRecord">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="tx_hash" property="txHash" jdbcType="VARCHAR"/>
+        <result column="block_number" property="blockNumber" jdbcType="BIGINT"/>
+        <result column="block_hash" property="blockHash" jdbcType="VARCHAR"/>
+        <result column="contract_address" property="contractAddress" jdbcType="VARCHAR"/>
+        <result column="from_address" property="fromAddress" jdbcType="VARCHAR"/>
+        <result column="to_address" property="toAddress" jdbcType="VARCHAR"/>
+        <result column="amount" property="amount" jdbcType="VARCHAR"/>
+        <result column="amount_decimal" property="amountDecimal" jdbcType="DECIMAL"/>
+        <result column="decimals" property="decimals" jdbcType="INTEGER"/>
+        <result column="log_index" property="logIndex" jdbcType="INTEGER"/>
+        <result column="transaction_index" property="transactionIndex" jdbcType="INTEGER"/>
+        <result column="timestamp" property="timestamp" jdbcType="BIGINT"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+        <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+
+    <sql id="Base_Column_List">
+        id, tx_hash, block_number, block_hash, contract_address,
+        from_address, to_address, amount, amount_decimal, decimals,
+        log_index, transaction_index, timestamp, created_at, updated_at
+    </sql>
+
+
+    <insert id="insert" parameterType="com.example.web3.entity.DepositRecord"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO deposit_record (
+            tx_hash, block_number, block_hash, contract_address,
+            from_address, to_address, amount, amount_decimal, decimals,
+            log_index, transaction_index, timestamp, created_at, updated_at
+        ) VALUES (
+            #{txHash}, #{blockNumber}, #{blockHash}, #{contractAddress},
+            #{fromAddress}, #{toAddress}, #{amount}, #{amountDecimal}, #{decimals},
+            #{logIndex}, #{transactionIndex}, #{timestamp}, NOW(), NOW()
+        )
+    </insert>
+
+
+    <select id="findByTxHash" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM deposit_record
+        WHERE tx_hash = #{txHash}
+        LIMIT 1
+    </select>
+
+
+    <select id="findByToAddress" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM deposit_record
+        WHERE to_address = #{address}
+        ORDER BY block_number DESC, log_index DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+
+    <select id="findAll" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM deposit_record
+        ORDER BY block_number DESC, log_index DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+</mapper>
+
