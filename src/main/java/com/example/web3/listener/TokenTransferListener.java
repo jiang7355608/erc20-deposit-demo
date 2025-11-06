@@ -171,6 +171,7 @@ public class TokenTransferListener implements CommandLineRunner {
      */
     private void handleTransferEvent(Log eventLog) {
         try {
+            //为什么会有链重组？以太坊使用验证者来产生区块，可能因为网络延迟会产生分叉？
             // 先睡眠等待区块确认
             Integer requiredConfirmations = web3jConfig.getToken().getConfirmations();
             if (requiredConfirmations != null && requiredConfirmations > 0) {

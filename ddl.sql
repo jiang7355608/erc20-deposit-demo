@@ -28,8 +28,10 @@ CREATE TABLE deposit_record (
 );
 
 
--- 唯一索引: 交易哈希（保证幂等性）
-CREATE UNIQUE INDEX uk_tx_hash ON deposit_record(tx_hash);
+-- 唯一索引: (交易哈希 + 日志索引) 保证幂等性
+CREATE UNIQUE INDEX uk_tx_hash_log_index ON deposit_record(tx_hash, log_index);
+
+
 
 
 COMMENT ON TABLE deposit_record IS 'ERC20 Token充值记录';

@@ -21,26 +21,27 @@ public class DepositService {
     private final DepositMapper depositMapper;
 
     /**
-     * 保存充值记录（带幂等性检查）
+     * 保存充值记录（利用数据库唯一索引保证幂等性）
      */
     @Transactional(rollbackFor = Exception.class)
     public void saveDepositRecord(DepositRecord record) {
         try {
-            // TODO 后续考虑加分布式锁
-            DepositRecord existing = depositMapper.findByTxHash(record.getTxHash());
-            if (existing != null) {
-                log.info("记录已存在，跳过: {}", record.getTxHash());
-                return;
-            }
-
             int rows = depositMapper.insert(record);
             if (rows > 0) {
-                log.info("保存成功 - txHash: {}, from: {}, to: {}, amount: {}",
-                        record.getTxHash(), record.getFromAddress(), 
-                        record.getToAddress(), record.getAmountDecimal());
+                log.info("保存成功 - txHash: {}, logIndex: {}, from: {}, to: {}, amount: {}",
+                        record.getTxHash(), 
+                        record.getLogIndex(),
+                        record.getFromAddress(), 
+                        record.getToAddress(), 
+                        record.getAmountDecimal());
             }
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            // 唯一索引冲突，说明已经存在（多实例并发插入）
+            log.info("记录已存在（并发插入），跳过: tx={}, logIndex={}", 
+                    record.getTxHash(), record.getLogIndex());
         } catch (Exception e) {
-            log.error("保存失败: {}", record.getTxHash(), e);
+            log.error("保存失败: tx={}, logIndex={}", 
+                    record.getTxHash(), record.getLogIndex(), e);
             throw e;
         }
     }
