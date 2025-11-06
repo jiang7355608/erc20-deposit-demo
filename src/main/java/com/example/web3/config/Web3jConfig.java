@@ -53,9 +53,17 @@ public class Web3jConfig {
                 .connectTimeout(httpTimeout, TimeUnit.MILLISECONDS)
                 .readTimeout(httpTimeout, TimeUnit.MILLISECONDS)
                 .writeTimeout(httpTimeout, TimeUnit.MILLISECONDS)
+                // 添加重试机制
+                .retryOnConnectionFailure(true)
+                // 添加连接池配置
+                .connectionPool(new okhttp3.ConnectionPool(5, 5, TimeUnit.MINUTES))
                 .build();
 
-        return Web3j.build(new HttpService(rpcUrl, okHttpClient));
+        HttpService httpService = new HttpService(rpcUrl, okHttpClient);
+        // 设置包含异常详情
+        httpService.addHeader("User-Agent", "Web3j-Spring-Boot-App/1.0");
+        
+        return Web3j.build(httpService);
     }
 }
 

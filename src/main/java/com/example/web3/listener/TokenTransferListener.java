@@ -39,6 +39,11 @@ public class TokenTransferListener implements CommandLineRunner {
     private final DepositService depositService;
 
     private Disposable subscription;
+    
+    // 重试相关参数
+    private static final int MAX_RETRY_ATTEMPTS = 5;
+    private static final long INITIAL_RETRY_DELAY_MS = 5000; // 5秒
+    private int retryCount = 0;
 
     private static final Event TRANSFER_EVENT = new Event("Transfer",
             Arrays.asList(
@@ -55,7 +60,32 @@ public class TokenTransferListener implements CommandLineRunner {
     @Override
     public void run(String... args) {
         log.info("启动监听器...");
+        // 先测试连接
+        if (!testConnection()) {
+            log.error("无法连接到 RPC 节点，请检查配置");
+            return;
+        }
         startListening();
+    }
+    
+    /**
+     * 测试 RPC 连接
+     */
+    private boolean testConnection() {
+        try {
+            log.info("测试 RPC 连接: {}", web3jConfig.getRpcUrl());
+            String clientVersion = web3j.web3ClientVersion().send().getWeb3ClientVersion();
+            log.info("连接成功，节点版本: {}", clientVersion);
+            
+            // 获取当前区块高度
+            BigInteger blockNumber = web3j.ethBlockNumber().send().getBlockNumber();
+            log.info("当前区块高度: {}", blockNumber);
+            
+            return true;
+        } catch (Exception e) {
+            log.error("连接测试失败: {}", e.getMessage(), e);
+            return false;
+        }
     }
 
     public void startListening() {
@@ -76,11 +106,13 @@ public class TokenTransferListener implements CommandLineRunner {
                     this::handleTransferEvent,
                     error -> {
                         log.error("监听出错: {}", error.getMessage(), error);
-                        // TODO 加重连机制
-                    }
+                        handleError(error);
+                    },
+                    () -> log.info("监听流完成")
             );
 
             log.info("监听启动成功");
+            retryCount = 0; // 重置重试计数
 
         } catch (Exception e) {
             log.error("启动失败: {}", e.getMessage(), e);
@@ -149,6 +181,39 @@ public class TokenTransferListener implements CommandLineRunner {
         return "0x" + topic.substring(26);
     }
 
+    /**
+     * 错误处理和重连机制
+     */
+    private void handleError(Throwable error) {
+        if (retryCount >= MAX_RETRY_ATTEMPTS) {
+            log.error("已达到最大重试次数 {}，停止重连", MAX_RETRY_ATTEMPTS);
+            return;
+        }
+        
+        retryCount++;
+        long delayMs = INITIAL_RETRY_DELAY_MS * retryCount;
+        log.warn("准备在 {} 毫秒后进行第 {} 次重连尝试", delayMs, retryCount);
+        
+        // 使用新线程延迟重连
+        new Thread(() -> {
+            try {
+                Thread.sleep(delayMs);
+                log.info("开始第 {} 次重连尝试", retryCount);
+                
+                // 先测试连接
+                if (testConnection()) {
+                    startListening();
+                } else {
+                    log.error("重连前测试失败，将继续重试");
+                    handleError(error); // 递归重试
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("重连线程被中断", e);
+            }
+        }).start();
+    }
+    
     @PreDestroy
     public void stopListening() {
         if (subscription != null && !subscription.isDisposed()) {

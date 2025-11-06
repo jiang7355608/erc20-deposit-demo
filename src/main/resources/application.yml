@@ -7,9 +7,9 @@ spring:
   
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:5432/web3_demo
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://localhost:26655/ERC20
+    username: antdb
+    password: antdb
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
@@ -19,14 +19,16 @@ mybatis:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
 web3j:
-  rpc-url: https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID  # 改成自己的
-  chain-id: 1  # 1=Mainnet, 56=BSC, 137=Polygon
+  # Sepolia 测试网 - 确保 RPC URL 和 chain-id 匹配
+  rpc-url: https://sepolia.infura.io/v3/a2026a116984443d8efad00e5139d7aa
+  chain-id: 11155111
   http-timeout: 60000
   websocket-timeout: 60000
+
   
   token:
-    contract-address: "0xdAC17F958D2ee523a2206206994597C13D831ec7"  # USDT合约
-    contract-name: "USDT"
+    contract-address: "0x24EbA24F5Eaed8fC8B9Cc128deDAA9691244490F"
+    contract-name: "JTK"
     start-block: latest
     polling-interval: 3000
 
