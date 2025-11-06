@@ -125,11 +125,21 @@ public class TokenTransferListener implements CommandLineRunner {
         try {
             String contractAddress = web3jConfig.getToken().getContractAddress();
             String contractName = web3jConfig.getToken().getContractName();
+            Integer requiredConfirmations = web3jConfig.getToken().getConfirmations();
 
             log.info("开始监听 {} - {}", contractName, contractAddress);
+            log.info("区块确认数要求: {} 个区块", requiredConfirmations);
 
+            // 计算安全的起始区块（当前区块 - 确认数）
+            BigInteger currentBlock = web3j.ethBlockNumber().send().getBlockNumber();
+            BigInteger safeBlock = currentBlock.subtract(BigInteger.valueOf(requiredConfirmations));
+            
+            log.info("当前区块: {}, 开始监听区块: {} (延迟 {} 个区块以确保安全)", 
+                    currentBlock, safeBlock, requiredConfirmations);
+
+            // 从安全的区块开始监听，这样事件到达时已经有足够确认
             EthFilter filter = new EthFilter(
-                    DefaultBlockParameterName.LATEST,
+                    org.web3j.protocol.core.DefaultBlockParameter.valueOf(safeBlock),
                     DefaultBlockParameterName.LATEST,
                     contractAddress
             );
@@ -161,12 +171,28 @@ public class TokenTransferListener implements CommandLineRunner {
      */
     private void handleTransferEvent(Log eventLog) {
         try {
-            // TODO 区块确认数检查，避免链重组
+            // 先睡眠等待区块确认
+            Integer requiredConfirmations = web3jConfig.getToken().getConfirmations();
+            if (requiredConfirmations != null && requiredConfirmations > 0) {
+                //每个区块等个20s 瞎几把估一个
+                long sleepMs = requiredConfirmations * 20 * 1000L;
+                log.info("交易 {} 等待 {} 秒以获得 {} 个区块确认", 
+                        eventLog.getTransactionHash(), 
+                        sleepMs / 1000, 
+                        requiredConfirmations);
+                Thread.sleep(sleepMs);
+            }
+            
+            // 睡醒后再检查一次确认数
+            if (!isConfirmed(eventLog)) {
+                log.warn("交易 {} 等待后确认数仍不足，跳过处理", eventLog.getTransactionHash());
+                return;
+            }
             
             List<String> topics = eventLog.getTopics();
             //日志包含至少 3 个 topics,事件签名 + from + to
             if (topics.size() < 3) {
-                log.warn("topics数量不对: {}", topics.size());
+                log.error("topics数量不对: {}", topics.size());
                 return;
             }
 
@@ -214,6 +240,53 @@ public class TokenTransferListener implements CommandLineRunner {
         }
     }
 
+    /**
+     * 检查区块确认数是否足够
+     * @param eventLog 事件日志
+     * @return true = 确认数足够，可以处理；false = 确认数不足，暂不处理
+     */
+    private boolean isConfirmed(Log eventLog) {
+        try {
+            Integer requiredConfirmations = web3jConfig.getToken().getConfirmations();
+
+            if (requiredConfirmations == null || requiredConfirmations == 0) {
+                return true;
+            }
+            
+            // 获取当前最新区块高度
+            BigInteger latestBlockNumber = web3j.ethBlockNumber().send().getBlockNumber();
+            
+            // 事件所在区块高度
+            BigInteger eventBlockNumber = eventLog.getBlockNumber();
+            
+            // 减去本次事件的区块高度，可以得到已确认的区块数
+            BigInteger confirmations = latestBlockNumber.subtract(eventBlockNumber);
+            
+            boolean isConfirmed = confirmations.compareTo(BigInteger.valueOf(requiredConfirmations)) >= 0;
+            
+            if (!isConfirmed) {
+                log.info("交易 {} 在区块 {}，当前区块 {}，确认数 {}/{}（不足）",
+                        eventLog.getTransactionHash(),
+                        eventBlockNumber,
+                        latestBlockNumber,
+                        confirmations,
+                        requiredConfirmations);
+            } else {
+                log.info("交易 {} 确认数 {}，已达到要求的 {} 个确认",
+                        eventLog.getTransactionHash(),
+                        confirmations,
+                        requiredConfirmations);
+            }
+            
+            return isConfirmed;
+            
+        } catch (Exception e) {
+            log.error("检查区块确认数失败: {}", e.getMessage(), e);
+            // 出错时保守处理：不处理该事件
+            return false;
+        }
+    }
+    
     // topic格式: 0x000000000000000000000000{address}
     private String decodeAddress(String topic) {
         if (topic.length() < 66) {

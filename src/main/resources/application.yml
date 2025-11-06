@@ -31,4 +31,6 @@ web3j:
     contract-name: "JTK"
     start-block: latest
     polling-interval: 3000
+    # 区块确认数：至少要等待多少个区块才认为交易最终确定
+    confirmations: 3
 

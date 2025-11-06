@@ -45,6 +45,12 @@ public class Web3jConfig {
         private String startBlock = "latest";
         
         private Long pollingInterval = 3000L;
+        
+        /**
+         * 区块确认数：防止链重组
+         * 建议值：测试网 3-6，主网 12-32
+         */
+        private Integer confirmations = 3;
     }
 
     @Bean
