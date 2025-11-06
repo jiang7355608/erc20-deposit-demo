@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: smart-contract-demo
+    name: erc20-deposit-demo
   
   datasource:
     driver-class-name: org.postgresql.Driver

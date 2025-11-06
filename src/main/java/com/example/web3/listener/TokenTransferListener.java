@@ -54,8 +54,8 @@ public class TokenTransferListener implements CommandLineRunner {
 
     private static final String TRANSFER_EVENT_SIGNATURE = EventEncoder.encode(TRANSFER_EVENT);
 
-    // FIXME 先写死，后面可以调合约的decimals()拿
-    private static final int TOKEN_DECIMALS = 6;
+    // 代币的小数位数，从合约动态获取
+    private int tokenDecimals = 18; // 默认值
 
     @Override
     public void run(String... args) {
@@ -65,6 +65,8 @@ public class TokenTransferListener implements CommandLineRunner {
             log.error("无法连接到 RPC 节点，请检查配置");
             return;
         }
+        // 获取代币的 decimals
+        fetchTokenDecimals();
         startListening();
     }
     
@@ -85,6 +87,37 @@ public class TokenTransferListener implements CommandLineRunner {
         } catch (Exception e) {
             log.error("连接测试失败: {}", e.getMessage(), e);
             return false;
+        }
+    }
+    
+    /**
+     * 从合约获取 decimals
+     */
+    private void fetchTokenDecimals() {
+        try {
+            String contractAddress = web3jConfig.getToken().getContractAddress();
+            
+            // ERC20 decimals() 方法签名: 0x313ce567
+            org.web3j.protocol.core.methods.request.Transaction transaction = 
+                org.web3j.protocol.core.methods.request.Transaction.createEthCallTransaction(
+                    null,
+                    contractAddress,
+                    "0x313ce567"  // decimals() 的方法签名
+                );
+            
+            String result = web3j.ethCall(transaction, DefaultBlockParameterName.LATEST)
+                    .send()
+                    .getValue();
+            
+            // 解析返回值（uint8）
+            if (result != null && !result.equals("0x")) {
+                tokenDecimals = new BigInteger(result.substring(2), 16).intValue();
+                log.info("从合约获取 decimals 成功: {} (合约: {})", tokenDecimals, contractAddress);
+            } else {
+                log.warn("无法从合约获取 decimals，使用默认值: {}", tokenDecimals);
+            }
+        } catch (Exception e) {
+            log.error("获取 decimals 失败，使用默认值 {}: {}", tokenDecimals, e.getMessage());
         }
     }
 
@@ -119,11 +152,19 @@ public class TokenTransferListener implements CommandLineRunner {
         }
     }
 
+    /**
+     * 日志格式 topics[0] = 事件签名
+     * topics[1] = from 地址
+     * topics[2] = to 地址
+     * data      = value 金额
+     * @param eventLog
+     */
     private void handleTransferEvent(Log eventLog) {
         try {
             // TODO 区块确认数检查，避免链重组
             
             List<String> topics = eventLog.getTopics();
+            //日志包含至少 3 个 topics,事件签名 + from + to
             if (topics.size() < 3) {
                 log.warn("topics数量不对: {}", topics.size());
                 return;
@@ -134,9 +175,9 @@ public class TokenTransferListener implements CommandLineRunner {
             
             String data = eventLog.getData();
             BigInteger value = new BigInteger(data.substring(2), 16);
-
+            //实际金额 = 原始值 / 10^decimals
             BigDecimal amountDecimal = new BigDecimal(value)
-                    .divide(BigDecimal.TEN.pow(TOKEN_DECIMALS));
+                    .divide(BigDecimal.TEN.pow(tokenDecimals));
 
             EthBlock.Block block = web3j.ethGetBlockByNumber(
                     org.web3j.protocol.core.DefaultBlockParameter.valueOf(
@@ -156,7 +197,7 @@ public class TokenTransferListener implements CommandLineRunner {
                     .toAddress(toAddress)
                     .amount(value.toString())
                     .amountDecimal(amountDecimal)
-                    .decimals(TOKEN_DECIMALS)
+                    .decimals(tokenDecimals)
                     .logIndex(eventLog.getLogIndex().intValue())
                     .transactionIndex(eventLog.getTransactionIndex().intValue())
                     .timestamp(timestamp)
