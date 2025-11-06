@@ -130,16 +130,10 @@ public class TokenTransferListener implements CommandLineRunner {
             log.info("开始监听 {} - {}", contractName, contractAddress);
             log.info("区块确认数要求: {} 个区块", requiredConfirmations);
 
-            // 计算安全的起始区块（当前区块 - 确认数）
-            BigInteger currentBlock = web3j.ethBlockNumber().send().getBlockNumber();
-            BigInteger safeBlock = currentBlock.subtract(BigInteger.valueOf(requiredConfirmations));
-            
-            log.info("当前区块: {}, 开始监听区块: {} (延迟 {} 个区块以确保安全)", 
-                    currentBlock, safeBlock, requiredConfirmations);
-
-            // 从安全的区块开始监听，这样事件到达时已经有足够确认
+            // 从最新区块开始监听
+            // 确认数检查在 handleTransferEvent 中通过睡眠实现
             EthFilter filter = new EthFilter(
-                    org.web3j.protocol.core.DefaultBlockParameter.valueOf(safeBlock),
+                    DefaultBlockParameterName.LATEST,
                     DefaultBlockParameterName.LATEST,
                     contractAddress
             );
