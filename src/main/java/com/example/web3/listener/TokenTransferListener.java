@@ -53,6 +53,10 @@ public class TokenTransferListener implements CommandLineRunner {
             ));
 
     private static final String TRANSFER_EVENT_SIGNATURE = EventEncoder.encode(TRANSFER_EVENT);
+    
+    // ERC20 标准函数选择器（Function Selector）
+    // 计算方式: keccak256("decimals()").substring(0, 10)
+    private static final String DECIMALS_FUNCTION_SELECTOR = "0x313ce567";
 
     // 代币的小数位数，从合约动态获取
     private int tokenDecimals = 18; // 默认值
@@ -96,7 +100,28 @@ public class TokenTransferListener implements CommandLineRunner {
     private void fetchTokenDecimals() {
         try {
             String contractAddress = web3jConfig.getToken().getContractAddress();
-            
+            //import org.web3j.crypto.Hash;
+            //import org.web3j.utils.Numeric;
+            //
+            //public class FunctionSelectorDemo {
+            //    public static void main(String[] args) {
+            //        // 1. 函数签名
+            //        String signature = "decimals()";
+            //
+            //        // 2. 计算 Keccak256 哈希
+            //        byte[] hash = Hash.sha3(signature.getBytes());
+            //
+            //        // 3. 取前 4 字节
+            //        byte[] selector = new byte[4];
+            //        System.arraycopy(hash, 0, selector, 0, 4);
+            //
+            //        // 4. 转换为十六进制字符串
+            //        String functionSelector = Numeric.toHexString(selector);
+            //
+            //        System.out.println(functionSelector);
+            //        // 输出: 0x313ce567
+            //    }
+            //}
             // ERC20 decimals() 方法签名: 0x313ce567
             org.web3j.protocol.core.methods.request.Transaction transaction = 
                 org.web3j.protocol.core.methods.request.Transaction.createEthCallTransaction(
